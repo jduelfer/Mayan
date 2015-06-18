@@ -1,0 +1,526 @@
+import re
+import lang_dict
+from random import randint
+import numpy as np
+from collections import Counter
+
+langs = []
+langs_words = []
+
+#my path '/Users/duelfer/Documents/LING 525/maya_words.txt'
+#input this before continuing
+
+mayaPath = '/Users/duelfer/Documents/LING 525/maya_words.txt'
+
+def openMaya(path, returnArray):
+    with open(path) as g:
+        for line in g:
+            words = line.split()
+            if words != None and words != []:
+                returnArray+=[words]
+
+## lang_words clean up
+##############################################################
+#write a for loop for this, where the index would be untill less then 10
+def cleanUp(array):          
+    for line in array:
+        if re.search('%{2,}',line[0]):
+            array.remove(line)
+        if re.search('={4,}',line[0]):
+            array.remove(line)
+        if re.search('x{4,}',line[0]):
+            array.remove(line)
+        if re.search('Kaufman',line[0]):
+            array.remove(line)
+
+def cleanUpNum(array):
+    for line in array:
+        if len(line)<2:
+            array.remove(line)
+
+#need to subtract the 'cf.'s
+def subtract_cfs(array):
+    i = 0
+    while i<len(array):
+        if array[i][0]=='cf.':
+            array[i] = array[i][1:]
+        i+=1
+        
+def removeNonKeys(array):
+    for line in array:
+        if line[0] not in lang_dict.lang_dict.keys():
+            array.remove(line)
+#end of for loops needed
+######################################################
+def lastRemove(array):
+    for line in array:
+        if len(line)<2:
+            array.remove(line)
+            
+#now create an array of the reconstruction   
+reconstructions = []
+def reconstruct(array, returnArray):
+    for line in array:
+        if re.search('^[*]',line[1]):
+            returnArray+=[line]
+            array.remove(line)
+ 
+def reconstructLangs(array, returnArray):      
+    for line in array:
+        returnArray+=[line[0]]
+
+def reconstructWords(array, returnArray):
+    for line in array:
+        returnArray+=[line[1]]
+
+def getMayanLangs(array, returnArray):
+    for line in array:
+        returnArray+=[line[0]]
+def getMayanWords(array, returnArray):
+    for line in array:
+        returnArray+=[line[1]]
+
+def damerau_levenshtein_distance(s1, s2):
+    d = {}
+    lenstr1 = len(s1)
+    lenstr2 = len(s2)
+    for i in xrange(-1,lenstr1+1):
+        d[(i,-1)] = i+1
+    for j in xrange(-1,lenstr2+1):
+        d[(-1,j)] = j+1
+ 
+    for i in xrange(lenstr1):
+        for j in xrange(lenstr2):
+            if s1[i] == s2[j]:
+                cost = 0
+            else:
+                cost = 1
+            d[(i,j)] = min(
+                           d[(i-1,j)] + 1, # deletion
+                           d[(i,j-1)] + 1, # insertion
+                           d[(i-1,j-1)] + cost, # substitution
+                          )
+            if i and j and s1[i]==s2[j-1] and s1[i-1] == s2[j]:
+                d[(i,j)] = min (d[(i,j)], d[i-2,j-2] + cost) # transposition
+ 
+    return d[lenstr1-1,lenstr2-1]
+
+#the reconstructed languages
+reLangs = []
+def reLangsSet(array, returnArray):   
+    for line in array:
+        returnArray+=[line[0]]
+    returnArray = set(returnArray)    
+    returnArray = list(returnArray)
+
+mLangs = []
+def mayanLangsSet(array, returnArray):
+    for line in array:
+        returnArray+=[line[0]]
+    returnArray = set(returnArray)
+    returnArray = list(returnArray)
+#compute the average distance of the proto words of the first proto-lang
+# put reconstructions in here
+def compute_averages(array):
+    count = []
+    avg_median = []
+    i1 = 0
+    while i1<len(array):
+        i2 = 0
+        while i2<len(array):
+            if array[i1][0] == array[i2][0]:
+                if array[i1][1] != array[i2][1]:
+                    count+=[damerau_levenshtein_distance(array[i1][1],array[i2][1])]
+            i2+=1
+        count = sorted(count)
+        total = 0
+        for i in count:
+            total+=i
+        if (len(count)<1):
+            avg = 0.0
+            median = 0
+        else:
+            avg = float(total/len(count))
+            median = count[len(count)/2]
+        avg_median+=[avg,median]
+        print "counting down: ",
+        print len(array)-i1
+        count = []
+        i1+=1
+    return avg_median
+
+def computeAllAverages(array):
+    count = []
+    avg = []
+    i1 = 0
+    while i1<len(array):
+        i2 = 0
+        while i2<len(array):
+            if array[i1][0] == array[i2][0]:
+                if array[i1][1] != array[i2][1]:
+                    count+=[damerau_levenshtein_distance(array[i1][1],array[i2][1])]
+            i2+=1
+        count = sorted(count)
+        total = 0
+        for i in count:
+            total+=i
+        if (len(count)<1):
+            average = 0.0
+        else:
+            average = float(total/len(count))
+        avg+=[average]
+        print "counting down: ",
+        print len(array)-i1
+        count = []
+        i1+=1
+    return avg
+
+##now that average mean is like avg_mean[0] = avg, avg_mean[1] = mean
+##put those in separate arrays
+def getAvg(avg_meanArray, returnArray):
+    i = 0
+    while i<len(avg_meanArray):
+        if i%2==0:
+            returnArray+=[avg_meanArray[i]]
+        i+=1
+        
+def getMean(avg_meanArray, returnArray):
+    i = 0
+    while i<len(avg_meanArray):
+        if i%2!=0:
+            returnArray+=[avg_meanArray[i]]
+        i+=1
+        
+def avg(array):
+    total = 0.0
+    for a in array:
+        total+=a
+    average = float(float(total)/float(len(array)))
+    return average
+
+def langavg(lang, wordArray, avgsArray):
+    pL = []
+    i = 0
+    while i<len(wordArray):
+        if(lang == wordArray[i][0]):
+            pL+=[avgsArray[i]]
+        i+=1
+    pL_av = avg(pL)
+    print pL
+    return pL_av
+
+#langArray is a SET of langs (actually in list form)
+#wordArray is the list of langs that the SET comes from (is much greater than the set)
+#avgsArray is the corresponding averages array of the wordArray
+#returnArray can be anything, but make sure it's empty first
+def avglangs(langArray, wordArray, avgsArray, returnArray):
+    for word in langArray:
+        pL = []
+        i = 0
+        while i<len(wordArray):
+            if (word == wordArray[i][0]):
+                pL+=[avgsArray[i]]
+            i+=1
+        pL_av = avg(pL)
+        returnArray+=[pL_av]
+
+def setOfLangs(array):
+    langs = []
+    for word in array:
+        langs+=[word[0]]
+    c = set(langs)
+    return c
+
+def getSet(array):  
+    myLangs = []   
+    for line in array:
+        myLangs+=[line[0]]
+    myLangs = set(myLangs)    
+    myLangs = list(myLangs)
+    return myLangs
+
+def blendAvgs(langArray, avgArray, returnArray):
+    i=0
+    while i<len(avgArray):
+        returnArray+=[[avgArray[i],langArray[i]]]
+        i+=1
+
+def getLangCount(langsArray, array):
+    numLang = []
+    for lang in langsArray:
+        count = 0
+        for line in array:
+            if lang == line[0]:
+                count+=1
+        numLang+=[[count,lang]]
+    return numLang
+    
+def randomMayan(numberWanted, searchArray):
+    returnArray = []
+    i = 0
+    while i<numberWanted:
+        j = randint(1,numberWanted)
+        returnArray+=[mayan[i]]
+        i+=1
+    return returnArray
+
+def getLetterSet(array):
+    letters = []
+    i = 0
+    while i<len(maya):
+        for letter in maya[i][1]:
+            letters+=letter
+        i+=1
+    return letters
+
+def startsWith(letter, array):
+    count = 0
+    for word in array:
+        if word[1][0] == letter:
+            count+=1
+    return count
+
+def starts(array):
+    starts = []
+    for letter in array:
+        starts+=[[letter, startsWith(letter, array)]]
+    return starts
+
+def byLang(lang, letterArray, searchArray):
+    complete = []
+    i = 0
+    while i<len(searchArray):
+        star = []
+        count = 0
+        letter = None
+        if lang == searchArray[i][0]:
+            letter = searchArray[i][1][0]
+            count+=1
+        if letter != None:
+            if complete != []:
+                put = False
+                for pair in complete:
+                    if pair[0]==letter:
+                        pair[1]+=count
+                        put = True
+                if put == False:
+                    complete+=[[letter,count]]
+            else:
+                complete+=[[letter,count]]
+        print i
+        i+=1
+    return complete
+                
+def cleanLetters(array):
+    i=0
+    while i<15:
+        for line in array:
+            if line[0] not in myLetters:
+                array.remove(line)
+        i+=1
+
+def addLetters(array):
+    total = 0
+    for line in array:
+        total+=line[1]
+    return total
+
+def findExact(lang,regexp,searchArray):
+    lineArray = []
+    for line in searchArray:
+        if re.search(lang,line[0]):
+            if re.search(regexp,line[1]):
+                lineArray+=[line]
+    return lineArray
+
+#in this, 4 gave me wayyy to many words to check through
+def findCloseDistance(word,searchArray):
+    possibleWords = []
+    for line in searchArray:
+        if damerau_levenshtein_distance(word,line[1])<4:    #arbitrary number right now
+            possibleWords+=[line]
+
+
+#use mayanLangsList right here
+def byAllLangs(langArray,letterArray,searchArray):
+    allLangs = []
+    for lang in langArray:
+        complete = byLang(lang,letterArray,searchArray)
+        allLangs+=[complete]
+    return allLangs
+            
+
+##############################################################
+#this is the portion of code to get modern data
+#use as a template
+mayan = []
+openMaya(mayaPath, mayan)
+print "cleaning up"
+i=0
+while i<15:
+    cleanUp(mayan)
+    i+=1
+print "finished basic leaning"
+i=0
+while i<15:
+    cleanUpNum(mayan)
+    i+=1
+print "finished number cleaning"
+i=0
+while i<15:
+    subtract_cfs(mayan)
+    i+=1
+print "finished cfs cleaning"
+i=0
+while i<15:
+    removeNonKeys(mayan)
+    i+=1
+print "finished no key cleaning"
+lastRemove(mayan)
+recon = []
+i=0
+while i<10:
+    reconstruct(mayan, recon)
+    i+=1
+print "done removing reconstructions"
+mayanLangs = []
+mayanWords = []
+getMayanLangs(mayan, mayanLangs)
+getMayanWords(mayan, mayanWords)
+mayan3 = randomMayan(2688, mayan)
+print "computing averages, this will take a little, be calm"
+print "done with computing averages"
+avs = []
+#getAvg(avgMedian, avs)
+print "working on averaging..."
+mayanLangsSet = mayanLangs
+mayanLangsList = set(mayanLangsSet)
+mayanLangsList = list(mayanLangsList)
+print "got the set"
+myAverages = computeAllAverages(mayan3)
+averageOfMyAverages = np.mean(myAverages)
+median = np.median(sorted(myAverages))
+data = Counter(myAverages)
+mode = data.most_common(1)
+arr = np.array(myAverages)
+standardDeviation = np.std(arr,axis=0)
+#totalAvgs = []
+#avglangs(mayanLangsList, mayan3, avs, totalAvgs)
+#langsAndAvgs = []
+#print "gotta blend"
+#blendAvgs(mayanLangsList, totalAvgs, langsAndAvgs)
+#lav = sorted(langsAndAvgs)
+#langCount = getLangCount(mayanLangsList, mayan)
+#langCount = sorted(langCount)
+#print "finished!!"
+
+###################
+#look at phonotactics
+#maya = maya_copy
+
+
+print"wait..."
+letters = getLetterSet(mayan)
+letterSet = letters
+letterList = set(letterSet)
+letterList = list(letterList)
+
+myLetters = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','7','@']
+
+#complete = byLang('TUZ',letterList, maya)
+
+#use mayanLangsList right here
+def byAllLangs(langArray,letterArray,searchArray):
+    allLangs = []
+    for lang in langArray:
+        complete = byLang(lang,letterArray,searchArray)
+        allLangs+=[complete]
+    return allLangs
+
+
+#####################################################
+#plotting the damerau_levenshtein distance between recon words
+##bar graph
+#import plotly.plotly as py
+#from plotly.graph_objs import *
+#
+#yGraph = [0,0,0,0,0,0,0,0,0,0,0,0,0]
+#for line in myAverages:
+#    if line == 0:
+#        yGraph[0]+=1
+#    if line == 1:
+#        yGraph[1]+=1
+#    if line ==2:
+#        yGraph[2]+=1
+#    if line == 3:
+#        yGraph[3]+=1
+#    if line == 4:
+#        yGraph[4]+=1
+#    if line == 5:
+#        yGraph[5]+=1
+#    if line == 6:
+#        yGraph[6]+=1
+#    if line == 7:
+#        yGraph[7]+=1
+#    if line == 8:
+#        yGraph[8]+=1
+#    if line == 9:
+#        yGraph[9]+=1
+#    if line == 10:
+#        yGraph[10]+=1
+#    if line == 11:
+#        yGraph[11]+=1
+#    if line == 12:
+#        yGraph[12]+=1
+#
+#data = Data([
+#    Bar(
+#        x=[0,1,2,3,4,5,6,7,8,9,10,11,12,13],
+#        y=yGraph
+#    )
+#])
+#plot_url = py.plot(data, filename='completeMayanBar')
+#
+#
+#trace = Scatter(
+#    x=[0,1,2,3,4,5,6,7,8,9,10,11,12,13],
+#    y=yGraph,
+#    mode='lines+markers',
+#    name="'spline'",
+#    text=["tweak line smoothness<br>with 'smoothing' in line object", "tweak line smoothness<br>with 'smoothing' in line object", "tweak line smoothness<br>with 'smoothing' in line object", "tweak line smoothness<br>with 'smoothing' in line object", "tweak line smoothness<br>with 'smoothing' in line object", "tweak line smoothness<br>with 'smoothing' in line object"],
+#    line=Line(
+#    shape='spline'
+#    )
+#)
+#data = Data([trace])
+#layout = Layout(
+#    legend=Legend(
+#        y=0.5,
+#        traceorder='reversed',
+#        font=Font(
+#            size=16
+#        ),
+#        yref='paper'
+#    )
+#)
+#fig = Figure(data=data, layout=layout)
+#plot_url = py.plot(fig, filename='completeMayanLines')
+
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.mlab as mlab
+import math
+
+mean = averageOfMyAverages
+variance = (3**2.0)
+sigma = math.sqrt(variance)
+x = np.linspace(0,12,100)
+plt.plot(x,mlab.normpdf(x,mean,sigma))
+
+plt.show()
+print "finished!!!! Do your bidding"
+
+
+
+
+                                                                                                                                                                               
